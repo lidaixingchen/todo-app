@@ -49,8 +49,19 @@ export function updateTodo(id: string, updates: Partial<Omit<Todo, 'id' | 'creat
 
 export function deleteTodo(id: string): boolean {
   const todos = getAllTodos()
-  const filtered = todos.filter((t) => t.id !== id)
-  if (filtered.length === todos.length) return false
+  const idsToDelete = new Set<string>()
+  idsToDelete.add(id)
+
+  let found = false
+  for (const t of todos) {
+    if (t.id === id || t.parentId === id) {
+      found = true
+      idsToDelete.add(t.id)
+    }
+  }
+
+  if (!found) return false
+  const filtered = todos.filter((t) => !idsToDelete.has(t.id))
   saveTodos(filtered)
   return true
 }
@@ -66,7 +77,8 @@ export function toggleTodoCompleted(id: string): Todo | undefined {
 
 export function deleteCompletedTodos(): number {
   const todos = getAllTodos()
-  const remaining = todos.filter((t) => !t.completed)
+  const completedIds = new Set(todos.filter((t) => t.completed).map((t) => t.id))
+  const remaining = todos.filter((t) => !completedIds.has(t.id) && !completedIds.has(t.parentId ?? ''))
   const deletedCount = todos.length - remaining.length
   saveTodos(remaining)
   return deletedCount
@@ -75,7 +87,15 @@ export function deleteCompletedTodos(): number {
 export function batchDelete(ids: string[]): number {
   const idSet = new Set(ids)
   const todos = getAllTodos()
-  const remaining = todos.filter((t) => !idSet.has(t.id))
+
+  const idsToDelete = new Set<string>()
+  for (const t of todos) {
+    if (idSet.has(t.id) || idSet.has(t.parentId ?? '')) {
+      idsToDelete.add(t.id)
+    }
+  }
+
+  const remaining = todos.filter((t) => !idsToDelete.has(t.id))
   const deletedCount = todos.length - remaining.length
   saveTodos(remaining)
   return deletedCount
@@ -144,22 +164,23 @@ export function getCategoryById(id: string): Category | undefined {
 
 export function computeStats(): TodoStats {
   const todos = getAllTodos()
-  const completed = todos.filter((t) => t.completed).length
+  const rootTodos = todos.filter((t) => t.parentId === null)
+  const completed = rootTodos.filter((t) => t.completed).length
 
   const byCategory: Record<string, number> = {}
-  for (const todo of todos) {
+  for (const todo of rootTodos) {
     byCategory[todo.category] = (byCategory[todo.category] || 0) + 1
   }
 
   const byPriority: Record<Priority, number> = { low: 0, medium: 0, high: 0 }
-  for (const todo of todos) {
+  for (const todo of rootTodos) {
     byPriority[todo.priority]++
   }
 
   return {
-    total: todos.length,
+    total: rootTodos.length,
     completed,
-    pending: todos.length - completed,
+    pending: rootTodos.length - completed,
     byCategory,
     byPriority,
   }

@@ -45,6 +45,7 @@ interface TodoState {
 
   exportToJson: () => string
 
+  getSubtasks: (parentId: string) => Todo[]
   getFilteredTodos: () => Todo[]
 }
 
@@ -111,6 +112,7 @@ const todoStore = createStore<TodoState>()((set, get) => ({
       id: crypto.randomUUID(),
       completed: false,
       createdAt: new Date().toISOString(),
+      parentId: data.parentId ?? null,
     }
     storage.addTodo(todo)
     set((state) => ({
@@ -130,11 +132,17 @@ const todoStore = createStore<TodoState>()((set, get) => ({
 
   deleteTodo: (id) => {
     storage.deleteTodo(id)
-    set((state) => ({
-      todos: state.todos.filter((t) => t.id !== id),
-      selectedIds: state.selectedIds.filter((sid) => sid !== id),
-      stats: storage.computeStats(),
-    }))
+    set((state) => {
+      const deletedIds = new Set<string>()
+      for (const t of state.todos) {
+        if (t.id === id || t.parentId === id) deletedIds.add(t.id)
+      }
+      return {
+        todos: state.todos.filter((t) => !deletedIds.has(t.id)),
+        selectedIds: state.selectedIds.filter((sid) => !deletedIds.has(sid)),
+        stats: storage.computeStats(),
+      }
+    })
   },
 
   toggleTodo: (id) => {
@@ -168,7 +176,8 @@ const todoStore = createStore<TodoState>()((set, get) => ({
   deleteCompleted: () => {
     storage.deleteCompletedTodos()
     set((state) => {
-      const remaining = state.todos.filter((t) => !t.completed)
+      const completedIds = new Set(state.todos.filter((t) => t.completed).map((t) => t.id))
+      const remaining = state.todos.filter((t) => !completedIds.has(t.id) && !completedIds.has(t.parentId ?? ''))
       const remainingIds = new Set(remaining.map((t) => t.id))
       return {
         todos: remaining,
@@ -231,9 +240,15 @@ const todoStore = createStore<TodoState>()((set, get) => ({
     return storage.exportTodosToJson()
   },
 
+  getSubtasks: (parentId: string) => {
+    const { todos } = get()
+    return todos.filter((t) => t.parentId === parentId)
+  },
+
   getFilteredTodos: () => {
     const { todos, filter, sortConfig } = get()
-    const filtered = filterTodos(todos, filter)
+    const rootTodos = todos.filter((t) => t.parentId === null)
+    const filtered = filterTodos(rootTodos, filter)
     return sortTodos(filtered, sortConfig)
   },
 }))

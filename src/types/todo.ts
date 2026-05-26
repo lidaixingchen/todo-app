@@ -21,6 +21,7 @@ export interface Todo {
   dueDate: string
   completed: boolean
   createdAt: string
+  parentId: string | null
 }
 
 export interface Category {

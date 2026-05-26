@@ -34,6 +34,7 @@ function handleSubmit() {
     category: form.category,
     priority: form.priority,
     dueDate: '',
+    parentId: null,
   })
 
   Object.assign(form, { ...INITIAL_FORM })
