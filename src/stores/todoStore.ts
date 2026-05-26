@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { createStore } from 'zustand/vanilla'
+import { shallowRef, triggerRef } from 'vue'
 import type { Todo, Category, Priority, SortConfig, TodoStats } from '../types/todo'
 import { PRIORITY_ORDER } from '../types/todo'
 import * as storage from '../utils/storage'
@@ -89,7 +90,7 @@ const DEFAULT_FILTER: FilterState = {
   search: '',
 }
 
-export const useTodoStore = create<TodoState>()((set, get) => ({
+const todoStore = createStore<TodoState>()((set, get) => ({
   todos: [],
   categories: [],
   filter: { ...DEFAULT_FILTER },
@@ -236,3 +237,16 @@ export const useTodoStore = create<TodoState>()((set, get) => ({
     return sortTodos(filtered, sortConfig)
   },
 }))
+
+const storeRef = shallowRef(todoStore.getState())
+
+todoStore.subscribe((state) => {
+  storeRef.value = state
+  triggerRef(storeRef)
+})
+
+import type { ShallowRef } from 'vue'
+
+export function useTodoStore(): ShallowRef<TodoState> {
+  return storeRef
+}
