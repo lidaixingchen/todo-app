@@ -6,13 +6,13 @@ const store = useTodoStore()
 
 const allCategories = computed(() => [
   { id: 'all', name: '全部任务', color: '#000' },
-  ...store.value.categories,
+  ...store.categories,
 ])
 
-const activeId = computed(() => store.value.filter.category)
+const activeId = computed(() => store.filter.category)
 
 function selectCategory(id: string) {
-  store.value.setFilter({ category: id })
+  store.setFilter({ category: id })
 }
 
 const isAdding = ref(false)
@@ -43,7 +43,7 @@ function cancelAdd() {
 function confirmAdd() {
   const trimmed = newName.value.trim()
   if (!trimmed) return
-  store.value.addCategory({
+  store.addCategory({
     name: trimmed,
     color: newColor.value,
   })
@@ -53,7 +53,7 @@ function confirmAdd() {
 
 function deleteCategory(id: string, event: Event) {
   event.stopPropagation()
-  store.value.deleteCategory(id)
+  store.deleteCategory(id)
 }
 </script>
 

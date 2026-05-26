@@ -2,12 +2,11 @@
 import { computed } from 'vue'
 import { useTodoStore } from '../stores/todoStore'
 
-const storeRef = useTodoStore()
-const store = computed(() => storeRef.value)
+const store = useTodoStore()
 
 const completionRate = computed(() => {
-  if (store.value.stats.total === 0) return 0
-  return Math.round((store.value.stats.completed / store.value.stats.total) * 100)
+  if (store.stats.total === 0) return 0
+  return Math.round((store.stats.completed / store.stats.total) * 100)
 })
 </script>
 

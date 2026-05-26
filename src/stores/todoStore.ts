@@ -1,5 +1,5 @@
-import { createStore } from 'zustand/vanilla'
-import { shallowRef, triggerRef } from 'vue'
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
 import type { Todo, Category, Priority, SortConfig, TodoStats } from '../types/todo'
 import { PRIORITY_ORDER } from '../types/todo'
 import * as storage from '../utils/storage'
@@ -15,38 +15,13 @@ interface FilterState {
   search: string
 }
 
-interface TodoState {
-  todos: Todo[]
-  categories: Category[]
-  filter: FilterState
-  sortConfig: SortConfig
-  selectedIds: string[]
-  stats: TodoStats
+const DEFAULT_SORT: SortConfig = { field: 'createdAt', order: 'desc' }
 
-  loadFromStorage: () => void
-  addTodo: (data: Omit<Todo, 'id' | 'createdAt' | 'completed'>) => void
-  updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => void
-  deleteTodo: (id: string) => void
-  toggleTodo: (id: string) => void
-  batchDelete: (ids: string[]) => void
-  batchToggle: (ids: string[], completed: boolean) => void
-  deleteCompleted: () => void
-
-  addCategory: (data: Omit<Category, 'id'>) => void
-  updateCategory: (id: string, updates: Partial<Omit<Category, 'id'>>) => void
-  deleteCategory: (id: string) => void
-
-  setFilter: (partial: Partial<FilterState>) => void
-  setSortConfig: (partial: Partial<SortConfig>) => void
-
-  toggleSelect: (id: string) => void
-  selectAll: () => void
-  clearSelection: () => void
-
-  exportToJson: () => string
-
-  getSubtasks: (parentId: string) => Todo[]
-  getFilteredTodos: () => Todo[]
+const DEFAULT_FILTER: FilterState = {
+  status: 'all',
+  priority: 'all',
+  category: 'all',
+  search: '',
 }
 
 function sortTodos(todos: Todo[], config: SortConfig): Todo[] {
@@ -82,31 +57,27 @@ function filterTodos(todos: Todo[], filter: FilterState): Todo[] {
   })
 }
 
-const DEFAULT_SORT: SortConfig = { field: 'createdAt', order: 'desc' }
+export const useTodoStore = defineStore('todo', () => {
+  const todos = ref<Todo[]>([])
+  const categories = ref<Category[]>([])
+  const filter = ref<FilterState>({ ...DEFAULT_FILTER })
+  const sortConfig = ref<SortConfig>({ ...DEFAULT_SORT })
+  const selectedIds = ref<string[]>([])
 
-const DEFAULT_FILTER: FilterState = {
-  status: 'all',
-  priority: 'all',
-  category: 'all',
-  search: '',
-}
+  const stats = computed<TodoStats>(() => storage.computeStats())
 
-const todoStore = createStore<TodoState>()((set, get) => ({
-  todos: [],
-  categories: [],
-  filter: { ...DEFAULT_FILTER },
-  sortConfig: { ...DEFAULT_SORT },
-  selectedIds: [],
-  stats: { total: 0, completed: 0, pending: 0, byCategory: {}, byPriority: { low: 0, medium: 0, high: 0 } },
+  const filteredTodos = computed(() => {
+    const rootTodos = todos.value.filter((t) => t.parentId === null)
+    const filtered = filterTodos(rootTodos, filter.value)
+    return sortTodos(filtered, sortConfig.value)
+  })
 
-  loadFromStorage: () => {
-    const todos = storage.getAllTodos()
-    const categories = storage.getAllCategories()
-    const stats = storage.computeStats()
-    set({ todos, categories, stats })
-  },
+  function loadFromStorage() {
+    todos.value = storage.getAllTodos()
+    categories.value = storage.getAllCategories()
+  }
 
-  addTodo: (data) => {
+  function addTodo(data: Omit<Todo, 'id' | 'createdAt' | 'completed'>) {
     const todo: Todo = {
       ...data,
       id: crypto.randomUUID(),
@@ -115,153 +86,137 @@ const todoStore = createStore<TodoState>()((set, get) => ({
       parentId: data.parentId ?? null,
     }
     storage.addTodo(todo)
-    set((state) => ({
-      todos: [...state.todos, todo],
-      stats: storage.computeStats(),
-    }))
-  },
+    todos.value.push(todo)
+  }
 
-  updateTodo: (id, updates) => {
+  function updateTodo(id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) {
     const updated = storage.updateTodo(id, updates)
     if (!updated) return
-    set((state) => ({
-      todos: state.todos.map((t) => (t.id === id ? updated : t)),
-      stats: storage.computeStats(),
-    }))
-  },
+    const index = todos.value.findIndex((t) => t.id === id)
+    if (index !== -1) todos.value[index] = updated
+  }
 
-  deleteTodo: (id) => {
+  function deleteTodo(id: string) {
     storage.deleteTodo(id)
-    set((state) => {
-      const deletedIds = new Set<string>()
-      for (const t of state.todos) {
-        if (t.id === id || t.parentId === id) deletedIds.add(t.id)
-      }
-      return {
-        todos: state.todos.filter((t) => !deletedIds.has(t.id)),
-        selectedIds: state.selectedIds.filter((sid) => !deletedIds.has(sid)),
-        stats: storage.computeStats(),
-      }
-    })
-  },
+    const deletedIds = new Set<string>()
+    for (const t of todos.value) {
+      if (t.id === id || t.parentId === id) deletedIds.add(t.id)
+    }
+    todos.value = todos.value.filter((t) => !deletedIds.has(t.id))
+    selectedIds.value = selectedIds.value.filter((sid) => !deletedIds.has(sid))
+  }
 
-  toggleTodo: (id) => {
+  function toggleTodo(id: string) {
     const toggled = storage.toggleTodoCompleted(id)
     if (!toggled) return
-    set((state) => ({
-      todos: state.todos.map((t) => (t.id === id ? toggled : t)),
-      stats: storage.computeStats(),
-    }))
-  },
+    const index = todos.value.findIndex((t) => t.id === id)
+    if (index !== -1) todos.value[index] = toggled
+  }
 
-  batchDelete: (ids) => {
+  function batchDelete(ids: string[]) {
     storage.batchDelete(ids)
     const idSet = new Set(ids)
-    set((state) => ({
-      todos: state.todos.filter((t) => !idSet.has(t.id)),
-      selectedIds: state.selectedIds.filter((sid) => !idSet.has(sid)),
-      stats: storage.computeStats(),
-    }))
-  },
+    const deletedIds = new Set<string>()
+    for (const t of todos.value) {
+      if (idSet.has(t.id) || idSet.has(t.parentId ?? '')) {
+        deletedIds.add(t.id)
+      }
+    }
+    todos.value = todos.value.filter((t) => !deletedIds.has(t.id))
+    selectedIds.value = selectedIds.value.filter((sid) => !deletedIds.has(sid))
+  }
 
-  batchToggle: (ids, completed) => {
+  function batchToggle(ids: string[], completed: boolean) {
     storage.batchToggleCompleted(ids, completed)
     const idSet = new Set(ids)
-    set((state) => ({
-      todos: state.todos.map((t) => (idSet.has(t.id) ? { ...t, completed } : t)),
-      stats: storage.computeStats(),
-    }))
-  },
+    todos.value = todos.value.map((t) => (idSet.has(t.id) ? { ...t, completed } : t))
+  }
 
-  deleteCompleted: () => {
+  function deleteCompleted() {
     storage.deleteCompletedTodos()
-    set((state) => {
-      const completedIds = new Set(state.todos.filter((t) => t.completed).map((t) => t.id))
-      const remaining = state.todos.filter((t) => !completedIds.has(t.id) && !completedIds.has(t.parentId ?? ''))
-      const remainingIds = new Set(remaining.map((t) => t.id))
-      return {
-        todos: remaining,
-        selectedIds: state.selectedIds.filter((sid) => remainingIds.has(sid)),
-        stats: storage.computeStats(),
-      }
-    })
-  },
+    const completedIds = new Set(todos.value.filter((t) => t.completed).map((t) => t.id))
+    const remaining = todos.value.filter((t) => !completedIds.has(t.id) && !completedIds.has(t.parentId ?? ''))
+    const remainingIds = new Set(remaining.map((t) => t.id))
+    todos.value = remaining
+    selectedIds.value = selectedIds.value.filter((sid) => remainingIds.has(sid))
+  }
 
-  addCategory: (data) => {
+  function addCategory(data: Omit<Category, 'id'>) {
     const category: Category = { ...data, id: crypto.randomUUID() }
     storage.addCategory(category)
-    set((state) => ({ categories: [...state.categories, category] }))
-  },
+    categories.value.push(category)
+  }
 
-  updateCategory: (id, updates) => {
+  function updateCategory(id: string, updates: Partial<Omit<Category, 'id'>>) {
     const updated = storage.updateCategory(id, updates)
     if (!updated) return
-    set((state) => ({
-      categories: state.categories.map((c) => (c.id === id ? updated : c)),
-    }))
-  },
+    const index = categories.value.findIndex((c) => c.id === id)
+    if (index !== -1) categories.value[index] = updated
+  }
 
-  deleteCategory: (id) => {
+  function deleteCategory(id: string) {
     storage.deleteCategory(id)
-    set((state) => ({ categories: state.categories.filter((c) => c.id !== id) }))
-  },
+    categories.value = categories.value.filter((c) => c.id !== id)
+  }
 
-  setFilter: (partial) => {
-    set((state) => ({ filter: { ...state.filter, ...partial } }))
-  },
+  function setFilter(partial: Partial<FilterState>) {
+    filter.value = { ...filter.value, ...partial }
+  }
 
-  setSortConfig: (partial) => {
-    set((state) => ({ sortConfig: { ...state.sortConfig, ...partial } }))
-  },
+  function setSortConfig(partial: Partial<SortConfig>) {
+    sortConfig.value = { ...sortConfig.value, ...partial }
+  }
 
-  toggleSelect: (id) => {
-    set((state) => {
-      const exists = state.selectedIds.includes(id)
-      return {
-        selectedIds: exists
-          ? state.selectedIds.filter((sid) => sid !== id)
-          : [...state.selectedIds, id],
-      }
-    })
-  },
+  function toggleSelect(id: string) {
+    const exists = selectedIds.value.includes(id)
+    selectedIds.value = exists
+      ? selectedIds.value.filter((sid) => sid !== id)
+      : [...selectedIds.value, id]
+  }
 
-  selectAll: () => {
-    const { todos, filter, sortConfig } = get()
-    const filtered = filterTodos(todos, filter)
-    const sorted = sortTodos(filtered, sortConfig)
-    set({ selectedIds: sorted.map((t) => t.id) })
-  },
+  function selectAll() {
+    const filtered = filterTodos(todos.value.filter((t) => t.parentId === null), filter.value)
+    const sorted = sortTodos(filtered, sortConfig.value)
+    selectedIds.value = sorted.map((t) => t.id)
+  }
 
-  clearSelection: () => {
-    set({ selectedIds: [] })
-  },
+  function clearSelection() {
+    selectedIds.value = []
+  }
 
-  exportToJson: () => {
+  function exportToJson() {
     return storage.exportTodosToJson()
-  },
+  }
 
-  getSubtasks: (parentId: string) => {
-    const { todos } = get()
-    return todos.filter((t) => t.parentId === parentId)
-  },
+  function getSubtasks(parentId: string) {
+    return todos.value.filter((t) => t.parentId === parentId)
+  }
 
-  getFilteredTodos: () => {
-    const { todos, filter, sortConfig } = get()
-    const rootTodos = todos.filter((t) => t.parentId === null)
-    const filtered = filterTodos(rootTodos, filter)
-    return sortTodos(filtered, sortConfig)
-  },
-}))
-
-const storeRef = shallowRef(todoStore.getState())
-
-todoStore.subscribe((state) => {
-  storeRef.value = state
-  triggerRef(storeRef)
+  return {
+    todos,
+    categories,
+    filter,
+    sortConfig,
+    selectedIds,
+    stats,
+    filteredTodos,
+    loadFromStorage,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleTodo,
+    batchDelete,
+    batchToggle,
+    deleteCompleted,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    setFilter,
+    setSortConfig,
+    toggleSelect,
+    selectAll,
+    clearSelection,
+    exportToJson,
+    getSubtasks,
+  }
 })
-
-import type { ShallowRef } from 'vue'
-
-export function useTodoStore(): ShallowRef<TodoState> {
-  return storeRef
-}

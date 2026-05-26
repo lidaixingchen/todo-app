@@ -22,13 +22,13 @@ const form = reactive<FormData>({ ...INITIAL_FORM })
 
 const TITLE_MAX_LENGTH = 100
 
-const categoryOptions = computed(() => store.value.categories)
+const categoryOptions = computed(() => store.categories)
 
 function handleSubmit() {
   const trimmed = form.title.trim()
   if (!trimmed) return
 
-  store.value.addTodo({
+  store.addTodo({
     title: trimmed,
     description: '',
     category: form.category,

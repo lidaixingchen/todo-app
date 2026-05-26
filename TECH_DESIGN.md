@@ -4,14 +4,12 @@
 
 - Vue3 + TypeScript + Vite
 - Tailwind CSS
-- Zustand（状态管理）
+- Pinia（状态管理）
 - Vue Router（如果需要多页面）
 - Vue Chart（如果需要统计图表）
 - date-fns（日期处理库）
 
-
 ## 项目结构
-
 
 ## 数据管理
 

@@ -6,21 +6,21 @@ import TodoItem from './TodoItem.vue'
 
 const store = useTodoStore()
 
-const filteredTodos = computed(() => store.value.getFilteredTodos())
+const filteredTodos = computed(() => store.filteredTodos)
 
 const search = computed({
-  get: () => store.value.filter.search,
-  set: (val: string) => store.value.setFilter({ search: val }),
+  get: () => store.filter.search,
+  set: (val: string) => store.setFilter({ search: val }),
 })
 
 const sortField = computed({
-  get: () => store.value.sortConfig.field,
-  set: (val: SortField) => store.value.setSortConfig({ field: val }),
+  get: () => store.sortConfig.field,
+  set: (val: SortField) => store.setSortConfig({ field: val }),
 })
 
 const sortOrder = computed({
-  get: () => store.value.sortConfig.order,
-  set: (val: SortOrder) => store.value.setSortConfig({ order: val }),
+  get: () => store.sortConfig.order,
+  set: (val: SortOrder) => store.setSortConfig({ order: val }),
 })
 
 function toggleOrder() {
@@ -41,8 +41,8 @@ const statusTabs = [
 ] as const
 
 const activeStatus = computed({
-  get: () => store.value.filter.status,
-  set: (val: 'all' | 'active' | 'completed') => store.value.setFilter({ status: val }),
+  get: () => store.filter.status,
+  set: (val: 'all' | 'active' | 'completed') => store.setFilter({ status: val }),
 })
 
 const sortOpen = ref(false)

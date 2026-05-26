@@ -11,7 +11,7 @@ const props = defineProps<{
 const store = useTodoStore()
 
 const category = computed(() =>
-  store.value.categories.find((c) => c.id === props.todo.category)
+  store.categories.find((c) => c.id === props.todo.category)
 )
 
 const priorityClass = computed(() => {
@@ -26,11 +26,11 @@ const priorityClass = computed(() => {
 })
 
 function toggle() {
-  store.value.toggleTodo(props.todo.id)
+  store.toggleTodo(props.todo.id)
 }
 
 function remove() {
-  store.value.deleteTodo(props.todo.id)
+  store.deleteTodo(props.todo.id)
 }
 
 const formattedDate = computed(() => {
@@ -38,7 +38,7 @@ const formattedDate = computed(() => {
   return props.todo.dueDate
 })
 
-const subtasks = computed(() => store.value.getSubtasks(props.todo.id))
+const subtasks = computed(() => store.getSubtasks(props.todo.id))
 
 const showSubtasks = ref(false)
 const addingSub = ref(false)
@@ -47,7 +47,7 @@ const subTitle = ref('')
 function addSubtask() {
   const trimmed = subTitle.value.trim()
   if (!trimmed) return
-  store.value.addTodo({
+  store.addTodo({
     title: trimmed,
     description: '',
     category: '',
@@ -61,11 +61,11 @@ function addSubtask() {
 }
 
 function toggleSub(id: string) {
-  store.value.toggleTodo(id)
+  store.toggleTodo(id)
 }
 
 function deleteSub(id: string) {
-  store.value.deleteTodo(id)
+  store.deleteTodo(id)
 }
 </script>
 

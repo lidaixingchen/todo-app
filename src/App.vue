@@ -9,7 +9,7 @@ import TaskList from './components/TaskList.vue'
 const store = useTodoStore()
 
 onMounted(() => {
-  store.value.loadFromStorage()
+  store.loadFromStorage()
 })
 </script>
 
