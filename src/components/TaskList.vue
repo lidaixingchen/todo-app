@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useTodoStore } from '../stores/todoStore'
 import type { SortField, SortOrder } from '../types/todo'
 import TodoItem from './TodoItem.vue'
@@ -44,6 +44,13 @@ const activeStatus = computed({
   get: () => store.value.filter.status,
   set: (val: 'all' | 'active' | 'completed') => store.value.setFilter({ status: val }),
 })
+
+const sortOpen = ref(false)
+
+function selectSort(key: SortField) {
+  sortField.value = key
+  sortOpen.value = false
+}
 </script>
 
 <template>
@@ -79,18 +86,29 @@ const activeStatus = computed({
 
     <div class="flex items-center gap-2">
       <span class="text-xs font-bold uppercase tracking-wider text-gray-500">排序</span>
-      <select
-        v-model="sortField"
-        class="cursor-pointer border-2 border-black bg-white px-2 py-1 text-xs outline-none"
-      >
-        <option
-          v-for="(label, key) in SORT_LABELS"
-          :key="key"
-          :value="key"
+      <div class="relative">
+        <button
+          class="flex items-center gap-2 border-2 border-black bg-white px-2 py-1 text-xs font-bold"
+          @click="sortOpen = !sortOpen"
         >
-          {{ label }}
-        </option>
-      </select>
+          <span>{{ SORT_LABELS[sortField] }}</span>
+          <span>▼</span>
+        </button>
+        <div
+          v-if="sortOpen"
+          class="absolute top-full z-10 mt-1 w-24 border-2 border-black bg-white shadow-[2px_2px_0px_0px_#000]"
+        >
+          <button
+            v-for="(label, key) in SORT_LABELS"
+            :key="key"
+            class="w-full px-2 py-1.5 text-left text-xs hover:bg-gray-100"
+            :class="sortField === key ? 'bg-gray-100 font-bold' : ''"
+            @click="selectSort(key as SortField)"
+          >
+            {{ label }}
+          </button>
+        </div>
+      </div>
       <button
         class="border-2 border-black px-2 py-1 text-xs font-bold"
         @click="toggleOrder"

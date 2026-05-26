@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 import { useTodoStore } from '../stores/todoStore'
 import { PRIORITY_LABELS } from '../types/todo'
 import type { Priority } from '../types/todo'
@@ -38,6 +38,27 @@ function handleSubmit() {
 
   Object.assign(form, { ...INITIAL_FORM })
 }
+
+const catOpen = ref(false)
+const priOpen = ref(false)
+
+const selectedCatName = computed(() => {
+  if (!form.category) return '未分类'
+  const cat = categoryOptions.value.find((c) => c.id === form.category)
+  return cat?.name ?? '未分类'
+})
+
+const selectedPriLabel = computed(() => PRIORITY_LABELS[form.priority])
+
+function selectCat(id: string) {
+  form.category = id
+  catOpen.value = false
+}
+
+function selectPri(key: Priority) {
+  form.priority = key
+  priOpen.value = false
+}
 </script>
 
 <template>
@@ -58,39 +79,66 @@ function handleSubmit() {
       />
     </div>
 
-    <div class="flex flex-col gap-1 sm:w-28">
-      <label for="add-category" class="text-xs font-bold uppercase tracking-wider">分类</label>
-      <select
-        id="add-category"
-        v-model="form.category"
-        class="cursor-pointer border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+    <div class="relative flex flex-col gap-1 sm:w-32">
+      <span class="text-xs font-bold uppercase tracking-wider">分类</span>
+      <button
+        type="button"
+        class="flex items-center justify-between border-2 border-black bg-white px-3 py-2 text-sm"
+        @click="catOpen = !catOpen"
       >
-        <option value="">未分类</option>
-        <option
+        <span>{{ selectedCatName }}</span>
+        <span class="text-xs">▼</span>
+      </button>
+      <div
+        v-if="catOpen"
+        class="absolute top-full z-10 mt-1 w-full border-2 border-black bg-white shadow-[2px_2px_0px_0px_#000]"
+      >
+        <button
+          type="button"
+          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+          :class="form.category === '' ? 'bg-gray-100 font-bold' : ''"
+          @click="selectCat('')"
+        >
+          未分类
+        </button>
+        <button
           v-for="cat in categoryOptions"
           :key="cat.id"
-          :value="cat.id"
+          type="button"
+          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+          :class="form.category === cat.id ? 'bg-gray-100 font-bold' : ''"
+          @click="selectCat(cat.id)"
         >
           {{ cat.name }}
-        </option>
-      </select>
+        </button>
+      </div>
     </div>
 
-    <div class="flex flex-col gap-1 sm:w-28">
-      <label for="add-priority" class="text-xs font-bold uppercase tracking-wider">优先级</label>
-      <select
-        id="add-priority"
-        v-model="form.priority"
-        class="cursor-pointer border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+    <div class="relative flex flex-col gap-1 sm:w-28">
+      <span class="text-xs font-bold uppercase tracking-wider">优先级</span>
+      <button
+        type="button"
+        class="flex items-center justify-between border-2 border-black bg-white px-3 py-2 text-sm"
+        @click="priOpen = !priOpen"
       >
-        <option
+        <span>{{ selectedPriLabel }}</span>
+        <span class="text-xs">▼</span>
+      </button>
+      <div
+        v-if="priOpen"
+        class="absolute top-full z-10 mt-1 w-full border-2 border-black bg-white shadow-[2px_2px_0px_0px_#000]"
+      >
+        <button
           v-for="(label, key) in PRIORITY_LABELS"
           :key="key"
-          :value="key"
+          type="button"
+          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+          :class="form.priority === key ? 'bg-gray-100 font-bold' : ''"
+          @click="selectPri(key as Priority)"
         >
           {{ label }}
-        </option>
-      </select>
+        </button>
+      </div>
     </div>
 
     <button
