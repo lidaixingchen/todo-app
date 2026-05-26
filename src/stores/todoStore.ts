@@ -64,7 +64,28 @@ export const useTodoStore = defineStore('todo', () => {
   const sortConfig = ref<SortConfig>({ ...DEFAULT_SORT })
   const selectedIds = ref<string[]>([])
 
-  const stats = computed<TodoStats>(() => storage.computeStats())
+  const stats = computed<TodoStats>(() => {
+    const rootTodos = todos.value.filter((t) => t.parentId === null)
+    const completed = rootTodos.filter((t) => t.completed).length
+
+    const byCategory: Record<string, number> = {}
+    for (const todo of rootTodos) {
+      byCategory[todo.category] = (byCategory[todo.category] || 0) + 1
+    }
+
+    const byPriority: Record<Priority, number> = { low: 0, medium: 0, high: 0 }
+    for (const todo of rootTodos) {
+      byPriority[todo.priority]++
+    }
+
+    return {
+      total: rootTodos.length,
+      completed,
+      pending: rootTodos.length - completed,
+      byCategory,
+      byPriority,
+    }
+  })
 
   const filteredTodos = computed(() => {
     const rootTodos = todos.value.filter((t) => t.parentId === null)
